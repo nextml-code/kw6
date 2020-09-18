@@ -2,7 +2,12 @@
 kw6 reader
 ==========
 
-Minimalistic library for reading files in the kw6 file format.
+.. image:: https://badge.fury.io/py/kw6.svg
+    :target: https://badge.fury.io/py/kw6
+
+Minimalistic library for reading files in the kw6 file format. See the
+`documentation <https://kw6.readthedocs.io/en/latest/>`_
+for more information on the API.
 
 Install
 =======
