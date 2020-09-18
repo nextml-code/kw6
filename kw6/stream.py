@@ -11,7 +11,7 @@ class Stream(BaseModel):
     Used to iterate over images in a kw6 file.
 
     Example:
-    
+
     .. code-block:: python
 
         from pathlib import Path
@@ -52,3 +52,10 @@ class Stream(BaseModel):
 
             while stream.peek(1) != b'':
                 yield Position.from_stream_(stream)
+
+
+def test_file_not_found():
+    import pytest
+
+    with pytest.raises(FileNotFoundError):
+        Stream('fail').version
