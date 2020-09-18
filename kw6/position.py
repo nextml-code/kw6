@@ -16,6 +16,9 @@ class PositionHeader(BaseModel):
     pulses: str
     n_active_cameras: int
 
+    class Config:
+        allow_mutation = False
+
     @staticmethod
     def from_stream_(stream):
         names = PositionHeader.__fields__.keys()
@@ -28,6 +31,9 @@ class PositionHeader(BaseModel):
 class Position(BaseModel):
     header: PositionHeader
     cameras: Tuple[Camera, ...]
+
+    class Config:
+        allow_mutation = False
 
     @staticmethod
     def from_stream_(stream):

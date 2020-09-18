@@ -25,6 +25,9 @@ class CameraHeader(BaseModel):
     _5xWearLeft: str
     _5xWearRight: str
 
+    class Config:
+        allow_mutation = False
+
     def from_stream_(stream):
         names = CameraHeader.__fields__.keys()
         return CameraHeader(**dict(zip(
