@@ -8,7 +8,7 @@ N_BYTES_DOUBLE = 8
 
 class CameraHeader(BaseModel):
     camera_version: str
-    camera_index: str
+    camera_index: int
     scale_height: str
     scale_length: str
     xMM: str
