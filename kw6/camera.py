@@ -3,12 +3,14 @@ import numpy as np
 from PIL import Image
 from pydantic import BaseModel
 
+from kw6 import types
+
 N_BYTES_DOUBLE = 8
 
 
 class CameraHeader(BaseModel):
     camera_version: str
-    camera_index: int
+    camera_index: types.CAMERA_INDEX
     scale_height: str
     scale_length: str
     xMM: str

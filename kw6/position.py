@@ -3,7 +3,7 @@ import numpy as np
 from pydantic import BaseModel
 from typing import Tuple
 
-from kw6 import Camera
+from kw6 import Camera, types
 
 N_BYTES_DOUBLE = 8
 
@@ -11,7 +11,7 @@ N_BYTES_DOUBLE = 8
 class PositionHeader(BaseModel):
     n_frame_bytes: str
     camera_version: str
-    frame_index: int
+    frame_index: types.FRAME_INDEX
     time: str
     pulses: str
     n_active_cameras: int
