@@ -26,6 +26,13 @@ Usage
                 f'{position.header.frame_index}_{camera.header.camera_index}.png'
             )
 
+Command line tool for converting a kw6 file to a folder with png images:
+
+.. code-block::
+
+    python -m kw6.to_png path/to/kw6
+
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
@@ -33,6 +40,7 @@ Usage
    stream
    position
    camera
+   to_png
 
 Indices and tables
 ==================

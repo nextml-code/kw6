@@ -1,6 +1,6 @@
 
 Camera
-=====================
+======
 .. autoclass:: kw6.Camera
    :members:
    :undoc-members:

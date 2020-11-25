@@ -1,6 +1,6 @@
 
 Stream
-=====================
+======
 
 .. autoclass:: kw6.Stream
    :members:

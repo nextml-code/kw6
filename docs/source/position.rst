@@ -1,6 +1,6 @@
 
 Position
-=====================
+========
 .. autoclass:: kw6.Position
    :members:
    :undoc-members:
