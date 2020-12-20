@@ -38,6 +38,7 @@ except DistributionNotFound:
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'recommonmark',
     'sphinx.ext.viewcode',
     'sphinx_rtd_theme',
