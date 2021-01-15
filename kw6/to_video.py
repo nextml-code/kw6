@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
+import pandas as pd
 import cv2
 import kw6
 
@@ -13,28 +14,46 @@ def to_video(kw6_path: Path, output_directory: Path = None, fourcc='FFV1'):
 
     output_directory.mkdir(exist_ok=True)
 
-    videos = dict()
+    camera_videos = dict()
+    position_headers = list()
 
-    for position in tqdm(kw6.Stream(kw6_path), desc='writing video'):
-        for camera in position.cameras:
+    try:
+        for position in tqdm(kw6.Stream(kw6_path), desc='writing video'):
 
-            camera_index = camera.header.camera_index
+            position_headers.append(position.header.dict())
+            for camera in position.cameras:
 
-            if camera_index not in videos:
-                videos[camera_index] = cv2.VideoWriter(
-                    str(output_directory / f'{kw6_path.stem}_{camera_index}.avi'),
-                    cv2.VideoWriter_fourcc(*fourcc),
-                    10,
-                    (camera.image.width, camera.image.height),
-                    isColor=0,
+                camera_index = camera.header.camera_index
+
+                if camera_index not in camera_videos:
+                    camera_videos[camera_index] = cv2.VideoWriter(
+                        str(output_directory / f'{kw6_path.stem}_{camera_index}.avi'),
+                        cv2.VideoWriter_fourcc(*fourcc),
+                        10,
+                        (camera.image.width, camera.image.height),
+                        isColor=0,
+                    )
+
+                camera_videos[camera_index].write(
+                    np.array(camera.image)
                 )
 
-            videos[camera_index].write(
-                np.array(camera.image)
-            )
+            if position.header.frame_index >= 1000:
+                break
+    except ValueError:
+        print('Error when reading file, stopping after writing incomplete results')
 
-    for video in videos.values():
+    for video in camera_videos.values():
         video.release()
+
+    (
+        pd.DataFrame.from_records(position_headers)
+        [['frame_index', 'time']]
+        .to_csv(
+            output_directory / f'{kw6_path.stem}.csv',
+            index=False,
+        )
+    )
 
 
 if __name__ == '__main__':
@@ -61,11 +80,10 @@ def test_to_video():
     kw6_path = Path('test/test.kw6')
     output_directory = Path('test_videos')
 
-    with raises(ValueError):
-        to_video(
-            kw6_path,
-            output_directory,
-        )
+    to_video(
+        kw6_path,
+        output_directory,
+    )
 
     with raises(ValueError):
         videos = dict()

@@ -59,3 +59,14 @@ def test_file_not_found():
 
     with pytest.raises(FileNotFoundError):
         Stream('fail').version
+
+
+def test_iter():
+    import pytest
+
+    max_position = 0
+    with pytest.raises(ValueError):
+        for position in Stream('test/test.kw6'):
+            max_position = position.header.frame_index
+
+    assert max_position >= 50

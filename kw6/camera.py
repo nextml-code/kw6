@@ -1,3 +1,4 @@
+import os
 import array
 import numpy as np
 from PIL import Image
@@ -6,6 +7,7 @@ from pydantic import BaseModel
 from kw6 import types
 
 N_BYTES_DOUBLE = 8
+IM_HDR_SIZE = 34
 
 
 class CameraHeader(BaseModel):
@@ -56,11 +58,9 @@ class Camera(BaseModel):
 
     @staticmethod
     def image_(stream, header):
-        im_hdr_size = 34
-
         n_rows = header.height
         n_cols = header.width
-        stream.read(N_BYTES_DOUBLE * (im_hdr_size - len(header.dict())))
+        stream.read(N_BYTES_DOUBLE * (IM_HDR_SIZE - len(header.dict())))
 
         image_data = np.array(
             array.array('B', stream.read(n_rows * n_cols))
