@@ -7,10 +7,10 @@ import cv2
 import kw6
 
 
-def to_video(kw6_path: Path, output_directory: Path = None, fourcc='FFV1'):
-    '''Convert a kw6 file to a folder of png images'''
+def to_videos(kw6_path: Path, output_directory: Path = None, fourcc='FFV1'):
+    '''Convert a kw6 file to videos'''
     if output_directory is None:
-        output_directory = kw6_path.parent
+        output_directory = kw6_path.parent / kw6_path.stem
 
     output_directory.mkdir(exist_ok=True)
 
@@ -18,7 +18,7 @@ def to_video(kw6_path: Path, output_directory: Path = None, fourcc='FFV1'):
     position_headers = list()
 
     try:
-        for position in tqdm(kw6.Stream(kw6_path), desc='writing video'):
+        for position in tqdm(kw6.Stream(kw6_path), desc='writing videos'):
 
             position_headers.append(position.header.dict())
             for camera in position.cameras:
@@ -27,7 +27,7 @@ def to_video(kw6_path: Path, output_directory: Path = None, fourcc='FFV1'):
 
                 if camera_index not in camera_videos:
                     camera_videos[camera_index] = cv2.VideoWriter(
-                        str(output_directory / f'{kw6_path.stem}_{camera_index}.avi'),
+                        str(output_directory / f'{camera_index}.avi'),
                         cv2.VideoWriter_fourcc(*fourcc),
                         10,
                         (camera.image.width, camera.image.height),
@@ -47,7 +47,7 @@ def to_video(kw6_path: Path, output_directory: Path = None, fourcc='FFV1'):
         pd.DataFrame.from_records(position_headers)
         [['frame_index', 'time']]
         .to_csv(
-            output_directory / f'{kw6_path.stem}.csv',
+            output_directory / 'positions.csv',
             index=False,
         )
     )
@@ -64,20 +64,20 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    to_video(
+    to_videos(
         Path(args.kw6_path),
         (None if args.output_directory is None else Path(args.output_directory)),
         args.fourcc,
     )
 
 
-def test_to_video():
+def test_to_videos():
     from pytest import raises
 
     kw6_path = Path('test/test.kw6')
     output_directory = Path('test_videos')
 
-    to_video(
+    to_videos(
         kw6_path,
         output_directory,
     )
@@ -92,7 +92,7 @@ def test_to_video():
 
                 if camera_index not in videos:
                     videos[camera_index] = cv2.VideoCapture(
-                        str(output_directory / f'{kw6_path.stem}_{camera_index}.avi'),
+                        str(output_directory / f'{camera_index}.avi'),
                     )
 
                 exists, frame = videos[camera_index].read()

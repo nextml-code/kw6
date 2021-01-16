@@ -32,8 +32,10 @@ Usage
                 f'{position.header.frame_index}_{camera.header.camera_index}.png'
             )
 
-Command line tool for converting a kw6 file to a folder with png images:
+
+Command line tools for converting a kw6 file to videos or a folder with png images:
 
 .. code-block::
 
+    python -m kw6.to_videos path/to/kw6
     python -m kw6.to_png path/to/kw6
