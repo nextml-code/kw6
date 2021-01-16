@@ -37,9 +37,6 @@ def to_video(kw6_path: Path, output_directory: Path = None, fourcc='FFV1'):
                 camera_videos[camera_index].write(
                     np.array(camera.image)
                 )
-
-            if position.header.frame_index >= 1000:
-                break
     except ValueError:
         print('Error when reading file, stopping after writing incomplete results')
 
