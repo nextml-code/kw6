@@ -63,6 +63,9 @@ class Stream(BaseModel):
         while self.stream.peek(1) != b'':
             yield Position.from_stream_(self.stream)
 
+    def close_(self):
+        self.stream.close()
+
 
 def test_file_not_found():
     import pytest
