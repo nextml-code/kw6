@@ -18,61 +18,13 @@ class Stream(BaseModel):
 
         path = Path('...')
 
-        for position in kw6.Stream(path):
+        for position in kw6.Stream.from_path(path):
             for camera in position.cameras:
                 camera.image.save(
                     f'{position.header.frame_index}_{camera.header.camera_index}.png'
                 )
     '''
 
-    path: Path
-
-    class Config:
-        allow_mutation = False
-
-    def __init__(self, path):
-        super().__init__(path=path)
-
-    @property
-    def version(self):
-        '''kw6 file format version'''
-        with self.path.open('rb') as stream:
-            return Stream.version_(stream)
-
-    @staticmethod
-    def version_(stream):
-        return stream.read(19).decode().strip()
-
-    def __iter__(self):
-        '''Iterate over positions and cameras in the file'''
-        with self.path.open('rb') as stream:
-            if Stream.version_(stream) != 'KW6FileClassVer1.0':
-                raise ValueError(f'Unexpected file version {self.version}')
-
-            while stream.peek(1) != b'':
-                yield Position.from_stream_(stream)
-
-
-class SeekableStream(BaseModel):
-    '''
-    Used to iterate over images in a kw6 file with seeking supported.
-
-    Example:
-
-    .. code-block:: python
-
-        from pathlib import Path
-        import kw6
-
-        path = Path('...')
-        stream = kw6.SeekableStream.from_path(path)
-        stream.seek_(25000)
-        for position in stream.read_positions_(200):
-            for camera in position.cameras:
-                camera.image.save(
-                    f'{position.header.frame_index}_{camera.header.camera_index}.png'
-                )
-    '''
     stream: io.BufferedReader
 
     class Config:
@@ -82,10 +34,10 @@ class SeekableStream(BaseModel):
     @staticmethod
     def from_path(path):
         stream = Path(path).open('rb')
-        version = Stream.version_(stream)
+        version = stream.read(19).decode().strip()
         if version != 'KW6FileClassVer1.0':
             raise ValueError(f'Unexpected file version {version}')
-        return SeekableStream(stream=stream)
+        return Stream(stream=stream)
 
     def seek_(self, frame_index: types.FRAME_INDEX):
         '''Go to stream position indicated by frame_index'''
@@ -113,7 +65,7 @@ def test_file_not_found():
     import pytest
 
     with pytest.raises(FileNotFoundError):
-        Stream('fail').version
+        Stream.from_path('fail').version
 
 
 def test_iter():
@@ -121,13 +73,13 @@ def test_iter():
 
     max_position = 0
     with pytest.raises(ValueError):
-        for position in Stream('test/test.kw6'):
+        for position in Stream.from_path('test/test.kw6'):
             max_position = position.header.frame_index
 
     assert max_position >= 50
 
 
 def test_seek():
-    stream = SeekableStream.from_path('test/test.kw6')
+    stream = Stream.from_path('test/test.kw6')
     stream.seek_(10)
     assert next(stream.read_positions_(1)).header.frame_index == 10
