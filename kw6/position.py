@@ -3,9 +3,7 @@ import numpy as np
 from pydantic import BaseModel
 from typing import Tuple
 
-from kw6 import Camera, types
-
-N_BYTES_DOUBLE = 8
+from kw6 import Camera, types, settings
 
 
 class PositionHeader(BaseModel):
@@ -19,12 +17,20 @@ class PositionHeader(BaseModel):
     class Config:
         allow_mutation = False
 
+    def peek(stream):
+        names = PositionHeader.__fields__.keys()
+        peek_length = settings.N_BYTES_DOUBLE * len(names)
+        return PositionHeader(**dict(zip(
+            names,
+            array.array('d', stream.peek(peek_length)[:peek_length])
+        )))
+
     @staticmethod
     def from_stream_(stream):
         names = PositionHeader.__fields__.keys()
         return PositionHeader(**dict(zip(
             names,
-            array.array('d', stream.read(N_BYTES_DOUBLE * len(names)))
+            array.array('d', stream.read(settings.N_BYTES_DOUBLE * len(names)))
         )))
 
 
@@ -45,3 +51,9 @@ class Position(BaseModel):
                 for _ in range(header.n_active_cameras)
             )
         )
+
+    @staticmethod
+    def skip_(stream):
+        header = PositionHeader.from_stream_(stream)
+        for i in range(header.n_active_cameras):
+            Camera.skip_(stream)

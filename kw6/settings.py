@@ -1,0 +1,4 @@
+
+
+N_BYTES_DOUBLE = 8
+IM_HDR_SIZE = 34

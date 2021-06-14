@@ -1,13 +1,11 @@
+import io
 import os
 import array
 import numpy as np
 from PIL import Image
 from pydantic import BaseModel
 
-from kw6 import types
-
-N_BYTES_DOUBLE = 8
-IM_HDR_SIZE = 34
+from kw6 import types, settings
 
 
 class CameraHeader(BaseModel):
@@ -36,7 +34,7 @@ class CameraHeader(BaseModel):
         names = CameraHeader.__fields__.keys()
         return CameraHeader(**dict(zip(
             names,
-            array.array('d', stream.read(N_BYTES_DOUBLE * len(names)))
+            array.array('d', stream.read(settings.N_BYTES_DOUBLE * len(names)))
         )))
 
 
@@ -60,10 +58,18 @@ class Camera(BaseModel):
     def image_(stream, header):
         n_rows = header.height
         n_cols = header.width
-        stream.read(N_BYTES_DOUBLE * (IM_HDR_SIZE - len(header.dict())))
+        stream.read(settings.N_BYTES_DOUBLE * (settings.IM_HDR_SIZE - len(header.dict())))
 
         image_data = np.array(
             array.array('B', stream.read(n_rows * n_cols))
         ).reshape(n_rows, n_cols)
 
         return Image.fromarray(image_data)
+
+    @staticmethod
+    def skip_(stream):
+        header = CameraHeader.from_stream_(stream)
+        stream.seek(
+            settings.N_BYTES_DOUBLE * (settings.IM_HDR_SIZE - len(header.dict()))
+            + header.height * header.width, io.SEEK_CUR
+        )
