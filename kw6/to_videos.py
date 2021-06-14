@@ -18,7 +18,7 @@ def to_videos(kw6_path: Path, output_directory: Path = None, fourcc='FFV1'):
     position_headers = list()
 
     try:
-        for position in tqdm(kw6.Stream(kw6_path), desc='writing videos'):
+        for position in tqdm(kw6.Stream.from_path(kw6_path), desc='writing videos'):
 
             position_headers.append(position.header.dict())
             for camera in position.cameras:
@@ -85,7 +85,7 @@ def test_to_videos():
     with raises(ValueError):
         videos = dict()
 
-        for position in kw6.Stream(kw6_path):
+        for position in kw6.Stream.from_path(kw6_path):
             for camera in position.cameras:
 
                 camera_index = camera.header.camera_index
