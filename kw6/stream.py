@@ -2,7 +2,7 @@ import io
 from pathlib import Path
 from pydantic import BaseModel
 
-from kw6 import Position, PositionHeader, types
+from kw6 import Position, PositionHeader, types, settings
 
 
 class Stream(BaseModel):
@@ -34,13 +34,16 @@ class Stream(BaseModel):
     @staticmethod
     def from_path(path):
         stream = Path(path).open('rb')
-        version = stream.read(19).decode().strip()
+        version = stream.read(settings.N_BYTES_VERSION).decode().strip()
         if version != 'KW6FileClassVer1.0':
             raise ValueError(f'Unexpected file version {version}')
         return Stream(stream=stream)
 
     def seek_(self, frame_index: types.FRAME_INDEX):
         '''Go to stream position indicated by frame_index'''
+        if PositionHeader.peek(self.stream).frame_index > frame_index:
+            print('WARNING: stream position ahead of input seek position, rewinding to start of file.')
+            self.stream.seek(settings.N_BYTES_VERSION)
         while (
             PositionHeader.peek(self.stream).frame_index != frame_index
             and self.stream.peek(1) != b''
@@ -83,3 +86,10 @@ def test_seek():
     stream = Stream.from_path('test/test.kw6')
     stream.seek_(10)
     assert next(stream.read_positions_(1)).header.frame_index == 10
+
+
+def test_rewind_seek():
+    stream = Stream.from_path('test/test.kw6')
+    stream.seek_(10)
+    stream.seek_(5)
+    assert next(stream.read_positions_(1)).header.frame_index == 5
