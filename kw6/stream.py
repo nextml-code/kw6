@@ -88,11 +88,5 @@ def test_iter():
 def test_seek():
     stream = Stream.from_path('test/test.kw6')
     stream.seek_(10)
-    assert next(stream.read_positions_(1)).header.frame_index == 10
-
-
-def test_rewind_seek():
-    stream = Stream.from_path('test/test.kw6')
-    stream.seek_(10)
     stream.seek_(5)
     assert next(stream.read_positions_(1)).header.frame_index == 5
