@@ -1,6 +1,8 @@
 import io
+from xml.dom import minidom
 from pathlib import Path
 from pydantic import BaseModel
+from typing import Optional, List, Dict
 
 from kw6 import Position, PositionHeader, types, settings
 
@@ -26,33 +28,53 @@ class Stream(BaseModel):
     '''
 
     stream: io.BufferedReader
+    cached_positions: Dict[int, int]
 
     class Config:
         allow_mutation = False
         arbitrary_types_allowed = True
 
     @staticmethod
-    def from_path(path):
+    def from_path(path, header_path=None):
         stream = Path(path).open('rb')
         version = stream.read(settings.N_BYTES_VERSION).decode().strip()
         if version != 'KW6FileClassVer1.0':
             raise ValueError(f'Unexpected file version {version}')
-        return Stream(stream=stream)
+        return Stream(
+            stream=stream,
+            cached_positions=header_positions(header_path) if header_path is not None else {},
+        )
 
     def seek_(self, frame_index: types.FRAME_INDEX):
         '''Go to stream position indicated by frame_index'''
+
+        self._seek_closest_stored_position(frame_index)
+
         if PositionHeader.peek(self.stream).frame_index > frame_index:
             print('WARNING: stream position ahead of input seek position, rewinding to start of file.')
             self.stream.seek(settings.N_BYTES_VERSION)
+
         while (
-            PositionHeader.peek(self.stream).frame_index != frame_index
-            and self.stream.peek(1) != b''
+            self.stream.peek(1) != b''
+            and PositionHeader.peek(self.stream).frame_index != frame_index
         ):
             Position.skip_(self.stream)
 
+    def _seek_closest_stored_position(self, frame_index: types.FRAME_INDEX):
+        available_positions = [
+            position for position in self.cached_positions.keys()
+            if position <= frame_index
+        ]
+        if len(available_positions) > 0:
+            closest_position = min(
+                available_positions,
+                key=lambda position: frame_index - position,
+            )
+            self.stream.seek(self.cached_positions[closest_position])
+
     def read_positions_(self, n: int):
         '''Read n positions from current stream position'''
-        for i in range(n):
+        for _ in range(n):
             if self.stream.peek(1) == b'':
                 break
             else:
@@ -65,6 +87,21 @@ class Stream(BaseModel):
 
     def close_(self):
         self.stream.close()
+
+
+def header_positions(path):
+    def byte_position(position_data):
+        return {
+            position_info.split(' = ')[0]: int(position_info.split(' = ')[1].strip('"'))
+            for position_info in position_data.firstChild.data.strip().split('\n')
+        }
+    return {
+        position['kw6Pos']: position['kw6Byte']
+        for position in map(
+            byte_position,
+            minidom.parse(str(path)).getElementsByTagName('kw6Index'),
+        )
+    }
 
 
 def test_file_not_found():
