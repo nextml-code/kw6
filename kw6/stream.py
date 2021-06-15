@@ -46,6 +46,22 @@ class Stream(BaseModel):
         )
 
     def __getitem__(self, indices_or_slice):
+        '''
+        Access a position by frame index. Supports slicing and array indexing
+        
+        Example:
+
+        .. code-block:: python
+
+            from pathlib import Path
+            import kw6
+
+            stream = kw6.Stream.from_path(Path('...'))
+            position = stream[10]
+            positions = stream[10: 20]
+            positions = stream[[5, 7, 9]]
+            all_positions = stream[:]
+        '''
         if type(indices_or_slice) == int:
             if indices_or_slice < 0:
                 raise IndexError('Negative indexing not supported.')
@@ -76,8 +92,6 @@ class Stream(BaseModel):
         return self.stream.peek(1) == b''
 
     def _seek(self, frame_index: types.FRAME_INDEX):
-        '''Go to stream position indicated by frame_index'''
-
         self._seek_closest_stored_position(frame_index)
 
         if PositionHeader.peek(self.stream).frame_index > frame_index:
@@ -113,6 +127,7 @@ class Stream(BaseModel):
             yield position
 
     def close_(self):
+        '''Close the stream file object, makes the stream unusable'''
         self.stream.close()
 
 
