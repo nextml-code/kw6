@@ -73,6 +73,8 @@ class Stream(BaseModel):
                 raise IndexError(indices_or_slice)
 
         elif type(indices_or_slice) == slice:
+            if indices_or_slice.step is not None:
+                raise ValueError('Slicing with step size is not supported')
             start = (
                 indices_or_slice.start
                 if indices_or_slice.start is not None
