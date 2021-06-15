@@ -66,7 +66,7 @@ class Stream(BaseModel):
         if type(indices_or_slice) == int:
             if indices_or_slice < 0:
                 raise IndexError('Negative indexing not supported.')
-            self._seek(indices_or_slice)
+            self.seek_(indices_or_slice)
             if not self.empty():
                 positions = Position.from_stream_(self.stream)
             else:
@@ -76,7 +76,7 @@ class Stream(BaseModel):
             if indices_or_slice.start is None:
                 return self[0: indices_or_slice.stop]
             if indices_or_slice.stop is None:
-                self._seek(indices_or_slice.start)
+                self.seek_(indices_or_slice.start)
                 positions = [position for position in self]
             else:
                 positions = [
@@ -95,7 +95,8 @@ class Stream(BaseModel):
     def empty(self):
         return self.stream.peek(1) == b''
 
-    def _seek(self, frame_index: types.FRAME_INDEX):
+    def seek_(self, frame_index: types.FRAME_INDEX):
+        '''Move the stream position to the position indicated by frame_index'''
         self._seek_closest_stored_position(frame_index)
 
         if PositionHeader.peek(self.stream).frame_index > frame_index:
