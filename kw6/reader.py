@@ -141,7 +141,7 @@ def header_positions(path):
             for position_info in position_data.firstChild.data.strip().split('\n')
         }
     return {
-        position['kw6Pos']: position['kw6Byte']
+        position['kw6Pos'] // 10: position['kw6Byte']
         for position in map(
             byte_position,
             minidom.parse(str(path)).getElementsByTagName('kw6Index'),
