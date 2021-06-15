@@ -1,4 +1,5 @@
 import io
+from collections.abc import Iterable
 from xml.dom import minidom
 from pathlib import Path
 from pydantic import BaseModel
@@ -83,8 +84,11 @@ class Stream(BaseModel):
                     for index in range(indices_or_slice.start, indices_or_slice.stop)
                 ]
 
-        elif type(indices_or_slice) == list or type(indices_or_slice) == tuple:
+        elif isinstance(indices_or_slice, Iterable):
             positions = [self[index] for index in indices_or_slice]
+
+        else:
+            raise TypeError(f'Unindexable type {type(indices_or_slice)}')
 
         return positions
 
