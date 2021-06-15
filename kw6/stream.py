@@ -102,19 +102,21 @@ class Stream(BaseModel):
 
     def seek_(self, frame_index: types.FRAME_INDEX):
         '''Move the stream position to the position indicated by frame_index'''
-        self._seek_closest_stored_position(frame_index)
+        if frame_index in self.cached_positions:
+            self.stream.seek(self.cached_positions[frame_index])
+        else:
+            self._seek_closest_stored_position(frame_index)
+            if PositionHeader.peek(self.stream).frame_index > frame_index:
+                print('WARNING: stream position ahead of input seek position, rewinding to start of file.')
+                self.stream.seek(settings.N_BYTES_VERSION)
 
-        if PositionHeader.peek(self.stream).frame_index > frame_index:
-            print('WARNING: stream position ahead of input seek position, rewinding to start of file.')
-            self.stream.seek(settings.N_BYTES_VERSION)
-
-        while not self.empty():
-            next_position = PositionHeader.peek(self.stream).frame_index
-            self.cached_positions[next_position] = self.stream.tell()
-            if next_position != frame_index:
-                Position.skip_(self.stream)
-            else:
-                break
+            while not self.empty():
+                next_position = PositionHeader.peek(self.stream).frame_index
+                self.cached_positions[next_position] = self.stream.tell()
+                if next_position != frame_index:
+                    Position.skip_(self.stream)
+                else:
+                    break
 
     def _seek_closest_stored_position(self, frame_index: types.FRAME_INDEX):
         available_positions = [
