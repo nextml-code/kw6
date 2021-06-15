@@ -73,20 +73,16 @@ class Stream(BaseModel):
                 raise IndexError(indices_or_slice)
 
         elif type(indices_or_slice) == slice:
-            if indices_or_slice.step is not None:
-                raise ValueError('Slicing with step size is not supported')
-            start = (
-                indices_or_slice.start
-                if indices_or_slice.start is not None
-                else 0
-            )
-            if indices_or_slice.stop is None:
-                self.seek_(start)
-                positions = [position for position in self]
+            if indices_or_slice.start is None or indices_or_slice.stop is None:
+                raise ValueError('NoneType not supported for slice start or stop')
             else:
                 positions = [
                     self[index]
-                    for index in range(start, indices_or_slice.stop)
+                    for index in range(
+                        indices_or_slice.start,
+                        indices_or_slice.stop,
+                        indices_or_slice.step if indices_or_slice.step is not None else 1,
+                    )
                 ]
 
         elif isinstance(indices_or_slice, Iterable):
@@ -105,11 +101,7 @@ class Stream(BaseModel):
         if frame_index in self.cached_positions:
             self.stream.seek(self.cached_positions[frame_index])
         else:
-            self._seek_closest_stored_position(frame_index)
-            if PositionHeader.peek(self.stream).frame_index > frame_index:
-                print('WARNING: stream position ahead of input seek position, rewinding to start of file.')
-                self.stream.seek(settings.N_BYTES_VERSION)
-
+            self.stream.seek(self.closest_stored_position(frame_index))
             while not self.empty():
                 next_position = PositionHeader.peek(self.stream).frame_index
                 self.cached_positions[next_position] = self.stream.tell()
@@ -118,16 +110,19 @@ class Stream(BaseModel):
                 else:
                     break
 
-    def _seek_closest_stored_position(self, frame_index: types.FRAME_INDEX):
+    def closest_stored_position(self, frame_index: types.FRAME_INDEX):
         available_positions = [
             position for position in self.cached_positions.keys()
             if position <= frame_index
         ]
         if len(available_positions) > 0:
-            self.stream.seek(self.cached_positions[max(available_positions)])
+            return self.cached_positions[max(available_positions)]
+        else:
+            return settings.N_BYTES_VERSION
 
     def __iter__(self):
-        '''Iterate over positions and cameras in the file from current stream position'''
+        '''Iterate over all positions and cameras in the file'''
+        self.stream.seek(settings.N_BYTES_VERSION)
         while not self.empty():
             stream_position = self.stream.tell()
             position = Position.from_stream_(self.stream)
