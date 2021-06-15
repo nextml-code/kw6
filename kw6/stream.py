@@ -117,11 +117,7 @@ class Stream(BaseModel):
             if position <= frame_index
         ]
         if len(available_positions) > 0:
-            closest_position = min(
-                available_positions,
-                key=lambda position: frame_index - position,
-            )
-            self.stream.seek(self.cached_positions[closest_position])
+            self.stream.seek(self.cached_positions[max(available_positions)])
 
     def __iter__(self):
         '''Iterate over positions and cameras in the file from current stream position'''
