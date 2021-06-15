@@ -73,15 +73,18 @@ class Stream(BaseModel):
                 raise IndexError(indices_or_slice)
 
         elif type(indices_or_slice) == slice:
-            if indices_or_slice.start is None:
-                return self[0: indices_or_slice.stop]
+            start = (
+                indices_or_slice.start
+                if indices_or_slice.start is not None
+                else 0
+            )
             if indices_or_slice.stop is None:
-                self.seek_(indices_or_slice.start)
+                self.seek_(start)
                 positions = [position for position in self]
             else:
                 positions = [
                     self[index]
-                    for index in range(indices_or_slice.start, indices_or_slice.stop)
+                    for index in range(start, indices_or_slice.stop)
                 ]
 
         elif isinstance(indices_or_slice, Iterable):
