@@ -2,7 +2,7 @@ import io
 from xml.dom import minidom
 from pathlib import Path
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Dict
 
 from kw6 import Position, PositionHeader, types, settings
 
@@ -45,7 +45,37 @@ class Stream(BaseModel):
             cached_positions=header_positions(header_path) if header_path is not None else {},
         )
 
-    def seek_(self, frame_index: types.FRAME_INDEX):
+    def __getitem__(self, indices_or_slice):
+        if type(indices_or_slice) == int:
+            if indices_or_slice < 0:
+                raise IndexError('Negative indexing not supported.')
+            self._seek(indices_or_slice)
+            if not self.empty():
+                positions = Position.from_stream_(self.stream)
+            else:
+                raise IndexError(indices_or_slice)
+
+        elif type(indices_or_slice) == slice:
+            if indices_or_slice.start is None:
+                return self[0: indices_or_slice.stop]
+            if indices_or_slice.stop is None:
+                self._seek(indices_or_slice.start)
+                positions = [position for position in self]
+            else:
+                positions = [
+                    self[index]
+                    for index in range(indices_or_slice.start, indices_or_slice.stop)
+                ]
+
+        elif type(indices_or_slice) == list or type(indices_or_slice) == tuple:
+            positions = [self[index] for index in indices_or_slice]
+
+        return positions
+
+    def empty(self):
+        return self.stream.peek(1) == b''
+
+    def _seek(self, frame_index: types.FRAME_INDEX):
         '''Go to stream position indicated by frame_index'''
 
         self._seek_closest_stored_position(frame_index)
@@ -54,11 +84,13 @@ class Stream(BaseModel):
             print('WARNING: stream position ahead of input seek position, rewinding to start of file.')
             self.stream.seek(settings.N_BYTES_VERSION)
 
-        while (
-            self.stream.peek(1) != b''
-            and PositionHeader.peek(self.stream).frame_index != frame_index
-        ):
-            Position.skip_(self.stream)
+        while not self.empty():
+            next_position = PositionHeader.peek(self.stream).frame_index
+            self.cached_positions[next_position] = self.stream.tell()
+            if next_position != frame_index:
+                Position.skip_(self.stream)
+            else:
+                break
 
     def _seek_closest_stored_position(self, frame_index: types.FRAME_INDEX):
         available_positions = [
@@ -72,18 +104,13 @@ class Stream(BaseModel):
             )
             self.stream.seek(self.cached_positions[closest_position])
 
-    def read_positions_(self, n: int):
-        '''Read n positions from current stream position'''
-        for _ in range(n):
-            if self.stream.peek(1) == b'':
-                break
-            else:
-                yield Position.from_stream_(self.stream)
-
     def __iter__(self):
         '''Iterate over positions and cameras in the file from current stream position'''
-        while self.stream.peek(1) != b'':
-            yield Position.from_stream_(self.stream)
+        while not self.empty():
+            stream_position = self.stream.tell()
+            position = Position.from_stream_(self.stream)
+            self.cached_positions[position.header.frame_index] = stream_position
+            yield position
 
     def close_(self):
         self.stream.close()
@@ -122,8 +149,8 @@ def test_iter():
     assert max_position >= 50
 
 
-def test_seek():
+def test_indexing():
     stream = Stream.from_path('test/test.kw6')
-    stream.seek_(10)
-    stream.seek_(5)
-    assert next(stream.read_positions_(1)).header.frame_index == 5
+    assert stream[10].header.frame_index == 10
+    assert stream[10: 21][-1].header.frame_index == 20
+    assert stream[[11, 5, 9]][1].header.frame_index == 5
