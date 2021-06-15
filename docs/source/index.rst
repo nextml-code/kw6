@@ -20,7 +20,7 @@ Usage
 
     path = Path('...')
 
-    for position in kw6.Stream(path):
+    for position in kw6.Reader.from_path(path):
         for camera in position.cameras:
             camera.image.save(
                 f'{position.header.frame_index}_{camera.header.camera_index}.png'
@@ -37,7 +37,7 @@ Command line tool for converting a kw6 file to a video or folder with images:
    :maxdepth: 2
    :caption: Contents:
 
-   stream
+   reader
    position
    camera
    to_png

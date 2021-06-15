@@ -8,7 +8,7 @@ from typing import Dict
 from kw6 import Position, PositionHeader, types, settings
 
 
-class Stream(BaseModel):
+class Reader(BaseModel):
     '''
     Used to iterate over images in a kw6 file.
 
@@ -21,7 +21,7 @@ class Stream(BaseModel):
 
         path = Path('...')
 
-        for position in kw6.Stream.from_path(path):
+        for position in kw6.Reader.from_path(path):
             for camera in position.cameras:
                 camera.image.save(
                     f'{position.header.frame_index}_{camera.header.camera_index}.png'
@@ -41,7 +41,7 @@ class Stream(BaseModel):
         version = stream.read(settings.N_BYTES_VERSION).decode().strip()
         if version != 'KW6FileClassVer1.0':
             raise ValueError(f'Unexpected file version {version}')
-        return Stream(
+        return Reader(
             stream=stream,
             cached_positions=header_positions(header_path) if header_path is not None else {},
         )
@@ -57,11 +57,11 @@ class Stream(BaseModel):
             from pathlib import Path
             import kw6
 
-            stream = kw6.Stream.from_path(Path('...'))
-            position = stream[10]
-            positions = stream[10: 20]
-            positions = stream[[5, 7, 9]]
-            all_positions = stream[:]
+            reader = kw6.Reader.from_path(Path('...'))
+            position = reader[10]
+            positions = reader[10: 20]
+            positions = reader[[5, 7, 9]]
+            all_positions = reader[:]
         '''
         if type(indices_or_slice) == int:
             if indices_or_slice < 0:
@@ -153,7 +153,7 @@ def test_file_not_found():
     import pytest
 
     with pytest.raises(FileNotFoundError):
-        Stream.from_path('fail').version
+        Reader.from_path('fail').version
 
 
 def test_iter():
@@ -161,14 +161,14 @@ def test_iter():
 
     max_position = 0
     with pytest.raises(ValueError):
-        for position in Stream.from_path('test/test.kw6'):
+        for position in Reader.from_path('test/test.kw6'):
             max_position = position.header.frame_index
 
     assert max_position >= 50
 
 
 def test_indexing():
-    stream = Stream.from_path('test/test.kw6')
-    assert stream[10].header.frame_index == 10
-    assert stream[10: 21][-1].header.frame_index == 20
-    assert stream[[11, 5, 9]][1].header.frame_index == 5
+    reader = Reader.from_path('test/test.kw6')
+    assert reader[10].header.frame_index == 10
+    assert reader[10: 21][-1].header.frame_index == 20
+    assert reader[[11, 5, 9]][1].header.frame_index == 5
