@@ -1,8 +1,8 @@
 
-Stream
+Reader
 ======
 
-.. autoclass:: kw6.Stream
+.. autoclass:: kw6.Reader
    :members:
    :member-order: bysource
 

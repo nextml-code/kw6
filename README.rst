@@ -26,7 +26,7 @@ Usage
 
     path = Path('...')
 
-    for position in kw6.Stream(path):
+    for position in kw6.Reader.from_path(path):
         for camera in position.cameras:
             camera.image.save(
                 f'{position.header.frame_index}_{camera.header.camera_index}.png'
