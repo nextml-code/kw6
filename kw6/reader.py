@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from xml.dom import minidom
 from pathlib import Path
 from pydantic import BaseModel
-from typing import Dict, Optional
+from typing import Dict
 
 from kw6 import Position, PositionHeader, types, settings
 
@@ -31,24 +31,20 @@ class Reader(BaseModel):
 
     stream: io.BufferedReader
     cached_positions: Dict[int, int]
-    n_bytes_position: Optional[int] = None
-    initial_frame_index: Optional[int] = None
+    n_bytes_position: int
+    initial_frame_index: int
+    inconsistent_position_bytes: bool = False
 
     class Config:
-        allow_mutation = False
         arbitrary_types_allowed = True
 
     @staticmethod
-    def from_path(path, header_path=None, assume_consistent=False):
+    def from_path(path, header_path=None):
         stream = Path(path).open('rb')
         version = stream.read(settings.N_BYTES_VERSION).decode().strip()
         if version != 'KW6FileClassVer1.0':
             raise ValueError(f'Unexpected file version {version}')
-        n_bytes_position, initial_frame_index = (
-            initial_position_info(stream)
-            if assume_consistent
-            else (None, None)
-        )
+        n_bytes_position, initial_frame_index = initial_position_info(stream)
         return Reader(
             stream=stream,
             cached_positions=header_positions(header_path) if header_path is not None else {},
@@ -74,20 +70,14 @@ class Reader(BaseModel):
             all_positions = reader[:]
         '''
         if type(indices_or_slice) == int:
-            if indices_or_slice < 0:
-                raise IndexError('Negative indexing not supported.')
-            self.seek_(indices_or_slice)
-            if not self.empty():
-                positions = Position.from_stream_(self.stream)
-            else:
-                raise IndexError(indices_or_slice)
+            positions = self.position_(indices_or_slice)
 
         elif type(indices_or_slice) == slice:
             if indices_or_slice.start is None or indices_or_slice.stop is None:
                 raise ValueError('NoneType not supported for slice start or stop')
             else:
                 positions = [
-                    self[index]
+                    self.position_(index)
                     for index in range(
                         indices_or_slice.start,
                         indices_or_slice.stop,
@@ -96,15 +86,37 @@ class Reader(BaseModel):
                 ]
 
         elif isinstance(indices_or_slice, Iterable):
-            positions = [self[index] for index in indices_or_slice]
+            positions = [self.position_(index) for index in indices_or_slice]
 
         else:
             raise TypeError(f'Unindexable type {type(indices_or_slice)}')
 
         return positions
+    
+    def position_(self, frame_index: types.FRAME_INDEX):
+        if frame_index < 0:
+            raise IndexError('Negative indexing not supported.')
+        try:
+            if self.inconsistent_position_bytes:
+                raise IOError
+            self.assumptuous_seek_(frame_index)
+            return Position.from_stream_(self.stream)
+        except:
+            self.inconsistent_position_bytes = True
+            self.seek_(frame_index)
+            if not self.empty():
+                positions = Position.from_stream_(self.stream)
+            else:
+                raise IndexError(frame_index)
 
     def empty(self):
         return self.stream.peek(1) == b''
+
+    def assumptuous_seek_(self, frame_index: types.FRAME_INDEX):
+        self.stream.seek(
+            self.n_bytes_position * (frame_index - self.initial_frame_index)
+            + settings.N_BYTES_VERSION
+        )
 
     def seek_(self, frame_index: types.FRAME_INDEX):
         '''Move the stream position to the position indicated by frame_index'''
@@ -194,13 +206,6 @@ def test_iter():
 
 def test_indexing():
     reader = Reader.from_path('test/test.kw6')
-    assert reader[10].header.frame_index == 10
-    assert reader[10: 21][-1].header.frame_index == 20
-    assert reader[[11, 5, 9]][1].header.frame_index == 5
-
-
-def test_assume_consistent():
-    reader = Reader.from_path('test/test.kw6', assume_consistent=True)
     assert reader[10].header.frame_index == 10
     assert reader[10: 21][-1].header.frame_index == 20
     assert reader[[11, 5, 9]][1].header.frame_index == 5
