@@ -1,9 +1,10 @@
 import io
+import numpy as np
 from collections.abc import Iterable
 from xml.dom import minidom
 from pathlib import Path
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, Optional
 
 from kw6 import Position, PositionHeader, types, settings
 
@@ -30,20 +31,29 @@ class Reader(BaseModel):
 
     stream: io.BufferedReader
     cached_positions: Dict[int, int]
+    n_bytes_position: Optional[int] = None
+    initial_frame_index: Optional[int] = None
 
     class Config:
         allow_mutation = False
         arbitrary_types_allowed = True
 
     @staticmethod
-    def from_path(path, header_path=None):
+    def from_path(path, header_path=None, assume_consistent=False):
         stream = Path(path).open('rb')
         version = stream.read(settings.N_BYTES_VERSION).decode().strip()
         if version != 'KW6FileClassVer1.0':
             raise ValueError(f'Unexpected file version {version}')
+        n_bytes_position, initial_frame_index = (
+            initial_position_info(stream)
+            if assume_consistent
+            else (None, None)
+        )
         return Reader(
             stream=stream,
             cached_positions=header_positions(header_path) if header_path is not None else {},
+            n_bytes_position=n_bytes_position,
+            initial_frame_index=initial_frame_index,
         )
 
     def __getitem__(self, indices_or_slice):
@@ -98,7 +108,12 @@ class Reader(BaseModel):
 
     def seek_(self, frame_index: types.FRAME_INDEX):
         '''Move the stream position to the position indicated by frame_index'''
-        if frame_index in self.cached_positions:
+        if self.n_bytes_position is not None:
+            self.stream.seek(
+                self.n_bytes_position * (frame_index - self.initial_frame_index)
+                + settings.N_BYTES_VERSION
+            )
+        elif frame_index in self.cached_positions:
             self.stream.seek(self.cached_positions[frame_index])
         else:
             self.stream.seek(self.closest_stored_position(frame_index))
@@ -132,6 +147,16 @@ class Reader(BaseModel):
     def close_(self):
         '''Close the stream file object, makes the stream unusable'''
         self.stream.close()
+
+
+def initial_position_info(stream):
+    original_stream_position = stream.tell()
+    stream.seek(settings.N_BYTES_VERSION)
+    position = Position.from_stream_(stream)
+    frame_index = position.header.frame_index
+    new_stream_position = stream.tell()
+    stream.seek(original_stream_position)
+    return new_stream_position - settings.N_BYTES_VERSION, frame_index
 
 
 def header_positions(path):
@@ -169,6 +194,13 @@ def test_iter():
 
 def test_indexing():
     reader = Reader.from_path('test/test.kw6')
+    assert reader[10].header.frame_index == 10
+    assert reader[10: 21][-1].header.frame_index == 20
+    assert reader[[11, 5, 9]][1].header.frame_index == 5
+
+
+def test_assume_consistent():
+    reader = Reader.from_path('test/test.kw6', assume_consistent=True)
     assert reader[10].header.frame_index == 10
     assert reader[10: 21][-1].header.frame_index == 20
     assert reader[[11, 5, 9]][1].header.frame_index == 5
