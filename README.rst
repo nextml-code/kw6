@@ -24,18 +24,21 @@ Usage
     from pathlib import Path
     import kw6
 
-    path = Path('...')
+    path = Path("...")
 
     for position in kw6.Reader.from_path(path):
         for camera in position.cameras:
             camera.image.save(
-                f'{position.header.frame_index}_{camera.header.camera_index}.png'
+                f"{position.header.frame_index}_{camera.header.camera_index}.png"
             )
 
 
-Command line tools for converting a kw6 file to videos or a folder with png images:
+.. code-block:: python
 
-.. code-block::
+    from pathlib import Path
+    import kw6
 
-    python -m kw6.to_videos path/to/kw6
-    python -m kw6.to_png path/to/kw6
+    reader = kw6.Reader.from_path(
+        Path("...")
+    )
+    position = reader[100]

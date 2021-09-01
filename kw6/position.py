@@ -1,5 +1,4 @@
 import array
-import numpy as np
 from pydantic import BaseModel
 from typing import Tuple
 
@@ -7,7 +6,7 @@ from kw6 import Camera, types, settings
 
 
 class PositionHeader(BaseModel):
-    n_frame_bytes: str
+    n_frame_bytes: int
     camera_version: str
     frame_index: types.FRAME_INDEX
     time: str
@@ -17,21 +16,25 @@ class PositionHeader(BaseModel):
     class Config:
         allow_mutation = False
 
-    def peek(stream):
-        names = PositionHeader.__fields__.keys()
-        peek_length = settings.N_BYTES_DOUBLE * len(names)
+    @staticmethod
+    def peek_from_stream(stream):
+        byte_size = PositionHeader.byte_size()
         return PositionHeader(**dict(zip(
-            names,
-            array.array('d', stream.peek(peek_length)[:peek_length])
+            PositionHeader.__fields__.keys(),
+            array.array("d", stream.peek(byte_size)[:byte_size]),
         )))
 
     @staticmethod
     def from_stream_(stream):
-        names = PositionHeader.__fields__.keys()
         return PositionHeader(**dict(zip(
-            names,
-            array.array('d', stream.read(settings.N_BYTES_DOUBLE * len(names)))
+            PositionHeader.__fields__.keys(),
+            array.array("d", stream.read(PositionHeader.byte_size()))
         )))
+
+    @staticmethod
+    def byte_size():
+        names = PositionHeader.__fields__.keys()
+        return settings.N_BYTES_DOUBLE * len(names)
 
 
 class Position(BaseModel):
@@ -54,6 +57,6 @@ class Position(BaseModel):
 
     @staticmethod
     def skip_(stream):
-        header = PositionHeader.from_stream_(stream)
-        for i in range(header.n_active_cameras):
-            Camera.skip_(stream)
+        header = PositionHeader.peek_from_stream(stream)
+        stream.seek(stream.tell() + header.n_frame_bytes)
+        return header

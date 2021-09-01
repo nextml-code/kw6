@@ -1,5 +1,5 @@
 import io
-import os
+import struct
 import array
 import numpy as np
 from PIL import Image
@@ -34,7 +34,7 @@ class CameraHeader(BaseModel):
         names = CameraHeader.__fields__.keys()
         return CameraHeader(**dict(zip(
             names,
-            array.array('d', stream.read(settings.N_BYTES_DOUBLE * len(names)))
+            array.array("d", stream.read(settings.N_BYTES_DOUBLE * len(names)))
         )))
 
 
@@ -61,7 +61,7 @@ class Camera(BaseModel):
         stream.read(settings.N_BYTES_DOUBLE * (settings.IM_HDR_SIZE - len(header.dict())))
 
         image_data = np.array(
-            array.array('B', stream.read(n_rows * n_cols))
+            array.array("B", stream.read(n_rows * n_cols))
         ).reshape(n_rows, n_cols)
 
         return Image.fromarray(image_data)
@@ -73,3 +73,4 @@ class Camera(BaseModel):
             settings.N_BYTES_DOUBLE * (settings.IM_HDR_SIZE - len(header.dict()))
             + header.height * header.width, io.SEEK_CUR
         )
+        return header
