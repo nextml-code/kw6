@@ -33,7 +33,6 @@ class Reader(BaseModel):
     stream: io.BufferedReader
     cached_positions: Dict[int, int]
     initial_frame_index: int
-    inconsistent_position_bytes: bool = False
 
     class Config:
         arbitrary_types_allowed = True
@@ -41,7 +40,7 @@ class Reader(BaseModel):
     @staticmethod
     @validate_arguments
     def from_path(path: Path, header_path: Path = None):
-        stream = io.BufferedReader(path.open("rb"))
+        stream = path.open("rb")
 
         version = stream.read(settings.N_BYTES_VERSION).decode().strip()
         if version != "KW6FileClassVer1.0":
@@ -59,9 +58,12 @@ class Reader(BaseModel):
             initial_frame_index=initial_position_header.frame_index,
         )
 
+    def empty(self):
+        return self.stream.peek(1) == b""
+
     def __iter__(self):
         """Iterate over all positions and cameras in the file"""
-        stream = io.BufferedReader(self.path.open("rb"))
+        stream = self.path.open("rb")
         stream.seek(settings.N_BYTES_VERSION)
         while not stream.peek(1) == b"":
             byte_position = stream.tell()
@@ -94,7 +96,6 @@ class Reader(BaseModel):
         assumptuous_length = (
             end_position - settings.N_BYTES_VERSION
         ) / position_header.n_frame_bytes
-        print("assumptuous_length:", assumptuous_length)
 
         if np.abs(assumptuous_length - np.round(assumptuous_length)) <= 1e-9:
             assumptuous_length = int(assumptuous_length)
@@ -102,7 +103,8 @@ class Reader(BaseModel):
             raise Exception(f"Unexpected length {assumptuous_length} of kw6 file")
 
         expected_frame_index = self.initial_frame_index + assumptuous_length - 1
-        position = self[expected_frame_index]
+        self.stream.seek(end_position - position_header.n_frame_bytes)
+        position = Position.from_stream_(self.stream)
         if position.header.frame_index != expected_frame_index:
             raise Exception(
                 f"Expected to find {expected_frame_index}, "
@@ -111,7 +113,7 @@ class Reader(BaseModel):
         return assumptuous_length
 
     def __getitem__(self, indices_or_slice):
-        """""""""
+        """
         Access a position by frame index. Supports slicing and array indexing
 
         Example:
@@ -127,14 +129,14 @@ class Reader(BaseModel):
             positions = reader[[5, 7, 9]]
         """
         if type(indices_or_slice) == int:
-            positions = self.position_(indices_or_slice)
+            positions = self.seek_position_(indices_or_slice)
 
         elif type(indices_or_slice) == slice:
             if indices_or_slice.start is None or indices_or_slice.stop is None:
                 raise ValueError("NoneType not supported for slice start or stop")
             else:
                 positions = [
-                    self.position_(index)
+                    self.seek_position_(index)
                     for index in range(
                         indices_or_slice.start,
                         indices_or_slice.stop,
@@ -143,28 +145,69 @@ class Reader(BaseModel):
                 ]
 
         elif isinstance(indices_or_slice, Iterable):
-            positions = [self.position_(index) for index in indices_or_slice]
+            positions = [self.seek_position_(index) for index in indices_or_slice]
 
         else:
             raise TypeError(f"Unindexable type {type(indices_or_slice)}")
 
         return positions
 
-    def position_(self, frame_index: types.FRAME_INDEX):
+    def seek_position_(self, frame_index: types.FRAME_INDEX):
         if frame_index < 0:
-            raise IndexError("Negative indexing not supported.")
-        try:
-            if self.inconsistent_position_bytes:
-                raise IOError
-            self.assumptuous_seek_(frame_index)
-            position = Position.from_stream_(self.stream)
-        except Exception:
-            self.inconsistent_position_bytes = True
-            self.seek_(frame_index)
-            if not self.empty():
-                position = Position.from_stream_(self.stream)
-            else:
-                raise IndexError(frame_index)
+            raise IndexError("Negative indexing not supported")
+
+        if frame_index < self.initial_frame_index:
+            raise IndexError(
+                f"Frame index {frame_index} is smaller than the first frame index"
+            )
+
+        attempts = 0
+        position = None
+        step_size_confidence = -1
+        while not self.empty():
+            self.stream.seek(self.closest_stored_byte_position(frame_index))
+            current_frame_index = PositionHeader.peek_from_stream(self.stream).frame_index
+            try:
+                if step_size_confidence == -1:
+                    position = self.assumptuous_seek_position_(frame_index)
+                else:
+                    position = self.assumptuous_seek_position_(
+                        min(current_frame_index + step_size_confidence, frame_index)
+                    )
+                    step_size_confidence *= 10
+            except Exception:
+                step_size_confidence = 1
+
+            if position is not None and position.header.frame_index == frame_index:
+                break
+
+            attempts += 1
+
+            if attempts >= 50:
+                break
+
+        if position is None or position.header.frame_index != frame_index:
+            raise IndexError(f"Unable to find {frame_index}")
+
+        return position
+
+    def assumptuous_seek_position_(self, frame_index: types.FRAME_INDEX):
+        self.stream.seek(self.closest_stored_byte_position(frame_index))
+        position_header = self.position_header()
+
+        byte_position = (
+            position_header.n_frame_bytes * (frame_index - position_header.frame_index)
+            + self.stream.tell()
+        )
+        if byte_position < 0:
+            raise IndexError(
+                f"Extrapolating to frame index {frame_index} gave a negative "
+                "byte position"
+            )
+
+        self.stream.seek(byte_position)
+
+        position = Position.from_stream_(self.stream)
 
         if position.header.frame_index != frame_index:
             raise IndexError(
@@ -172,39 +215,10 @@ class Reader(BaseModel):
                 f"but found {position.header.frame_index} instead."
             )
 
+        self.cached_positions[position.header.frame_index] = self.stream.tell()
         return position
 
-    def empty(self):
-        return self.stream.peek(1) == b""
-
-    def assumptuous_seek_(self, frame_index: types.FRAME_INDEX):
-        self.stream.seek(self.closest_stored_position(frame_index))
-        position_header = self.position_header()
-        self.stream.seek(
-            position_header.n_frame_bytes * (frame_index - position_header.frame_index)
-            + self.stream.tell()
-        )
-
-    def seek_(self, frame_index: types.FRAME_INDEX):
-        """Move the stream position to the position indicated by frame_index"""
-        if self.position_header().n_frame_bytes is not None:
-            self.stream.seek(
-                self.position_header().n_frame_bytes * (frame_index - self.initial_frame_index)
-                + settings.N_BYTES_VERSION
-            )
-        elif frame_index in self.cached_positions:
-            self.stream.seek(self.cached_positions[frame_index])
-        else:
-            self.stream.seek(self.closest_stored_position(frame_index))
-            while not self.empty():
-                next_position = PositionHeader.peek_from_stream(self.stream).frame_index
-                self.cached_positions[next_position] = self.stream.tell()
-                if next_position != frame_index:
-                    Position.skip_(self.stream)
-                else:
-                    break
-
-    def closest_stored_position(self, frame_index: types.FRAME_INDEX):
+    def closest_stored_byte_position(self, frame_index: types.FRAME_INDEX):
         available_positions = [
             position for position in self.cached_positions.keys()
             if position <= frame_index
@@ -262,6 +276,13 @@ def test_indexing():
     assert reader[[11, 5, 9]][1].header.frame_index == 5
 
 
+def test_indexing_dynamic():
+    reader = Reader.from_path("tests/dynamic.kw6")
+    assert reader[2090].header.frame_index == 2090
+    assert reader[2070].header.frame_index == 2070
+    assert reader[2100].header.frame_index == 2100
+
+
 def test_length():
     reader = Reader.from_path("tests/constant.kw6")
 
@@ -273,7 +294,7 @@ def test_length():
     assert max_frame_index == len(reader) + reader.initial_frame_index - 1
 
 
-def test_length_corrupt():
+def test_length_constant_corrupt():
     import pytest
 
     reader = Reader.from_path("tests/constant_corrupt.kw6")
@@ -282,8 +303,12 @@ def test_length_corrupt():
         reader.assumptuous_length()
 
 
-def test_length_varied():
+def test_length_dynamic():
+    import pytest
     reader = Reader.from_path("tests/dynamic.kw6")
+
+    with pytest.raises(Exception):
+        reader.assumptuous_length()
 
     max_frame_index = None
     for position in reader:
