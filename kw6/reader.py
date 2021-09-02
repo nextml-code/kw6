@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import BaseModel, validate_arguments
 from typing import Dict
 
-from kw6 import Position, PositionHeader, types, settings
+from kw6 import Position, PositionHeader, types, settings, hdr
 
 
 class Reader(BaseModel):
@@ -31,7 +31,7 @@ class Reader(BaseModel):
 
     path: Path
     stream: io.BufferedReader
-    cached_positions: Dict[int, int]
+    cached_byte_positions: Dict[int, int]
     initial_frame_index: int
 
     class Config:
@@ -50,8 +50,8 @@ class Reader(BaseModel):
         return Reader(
             path=path,
             stream=stream,
-            cached_positions=(
-                header_positions(header_path)
+            cached_byte_positions=(
+                hdr.positions(header_path)
                 if header_path is not None
                 else dict()
             ),
@@ -68,7 +68,7 @@ class Reader(BaseModel):
         while not stream.peek(1) == b"":
             byte_position = stream.tell()
             position = Position.from_stream_(stream)
-            self.cached_positions[position.header.frame_index] = byte_position
+            self.cached_byte_positions[position.header.frame_index] = byte_position
             yield position
         stream.close()
 
@@ -84,7 +84,7 @@ class Reader(BaseModel):
             while not self.empty():
                 byte_position = self.stream.tell()
                 position_header = Position.skip_(self.stream)
-                self.cached_positions[position_header.frame_index] = byte_position
+                self.cached_byte_positions[position_header.frame_index] = byte_position
 
             return position_header.frame_index - self.initial_frame_index + 1
 
@@ -158,10 +158,10 @@ class Reader(BaseModel):
 
         if frame_index < self.initial_frame_index:
             raise IndexError(
-                f"Frame index {frame_index} is smaller than the first frame index"
+                f"Frame index {frame_index} is smaller than the first frame "
+                f"index {self.initial_frame_index}"
             )
 
-        attempts = 0
         position = None
         step_size_confidence = -1
         while not self.empty():
@@ -179,11 +179,6 @@ class Reader(BaseModel):
                 step_size_confidence = 1
 
             if position is not None and position.header.frame_index == frame_index:
-                break
-
-            attempts += 1
-
-            if attempts >= 50:
                 break
 
         if position is None or position.header.frame_index != frame_index:
@@ -215,16 +210,16 @@ class Reader(BaseModel):
                 f"but found {position.header.frame_index} instead."
             )
 
-        self.cached_positions[position.header.frame_index] = self.stream.tell()
+        self.cached_byte_positions[position.header.frame_index] = self.stream.tell()
         return position
 
     def closest_stored_byte_position(self, frame_index: types.FRAME_INDEX):
         available_positions = [
-            position for position in self.cached_positions.keys()
+            position for position in self.cached_byte_positions.keys()
             if position <= frame_index
         ]
         if len(available_positions) > 0:
-            return self.cached_positions[max(available_positions)]
+            return self.cached_byte_positions[max(available_positions)]
         else:
             return settings.N_BYTES_VERSION
 
@@ -234,21 +229,6 @@ class Reader(BaseModel):
 
     def position_header(self):
         return PositionHeader.peek_from_stream(self.stream)
-
-
-def header_positions(path):
-    def byte_position(position_data):
-        return {
-            position_info.split(" = ")[0]: int(position_info.split(" = ")[1].strip('"'))
-            for position_info in position_data.firstChild.data.strip().split("\n")
-        }
-    return {
-        position["kw6Pos"] // 10: position["kw6Byte"]
-        for position in map(
-            byte_position,
-            minidom.parse(str(path)).getElementsByTagName("kw6Index"),
-        )
-    }
 
 
 def test_file_not_found():
@@ -278,6 +258,13 @@ def test_indexing():
 
 def test_indexing_dynamic():
     reader = Reader.from_path("tests/dynamic.kw6")
+    assert reader[2090].header.frame_index == 2090
+    assert reader[2070].header.frame_index == 2070
+    assert reader[2100].header.frame_index == 2100
+
+
+def test_indexing_dynamic_header():
+    reader = Reader.from_path("tests/dynamic.kw6", "tests/dynamic.hdr")
     assert reader[2090].header.frame_index == 2090
     assert reader[2070].header.frame_index == 2070
     assert reader[2100].header.frame_index == 2100

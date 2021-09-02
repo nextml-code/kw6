@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Protokoll>
+<Start>
+Date = "2021-04-09"
+Time = "13:34:31"
+MeasuringSystem = "owlsbtlwear"
+Filename = "owlsbtlwear20210409_132606_2011TA"
+Position = "0"
+ProgramName = "OWLS4Meas"
+CompileVersion = "2.33"
+CompileDate = "210301"
+CarDirection = "A"
+EngineDirection = "-"
+Pantograph = "-"
+SystemName = "owlsbtlwear"
+CarType = "IMV200"
+trigIntervalCh1 = "10"
+trigIntervalCh2 = "10"
+trigIncrement = "1"
+pulsesPerTrigCh1 = "10"
+pulsesPerTrigCh2 = "10"
+</Start>
+<kw6Index>
+kw6Byte = "19"
+kw6Pos = "0"
+</kw6Index>
+<kw6Index>
+kw6Byte = "372035"
+kw6Pos = "20900"
+</kw6Index>
+<End>
+Date = "2021-04-09"
+Time = "13:36:35"
+MeasuringSystem = "owlsbtlwear"
+Filename = "owlsbtlwear20210409_132606_2011TA"
+Position = "181490"
+</End>
+</Protokoll>

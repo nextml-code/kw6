@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Protokoll>
+<Start>
+Date = "2021-04-09"
+Time = "13:34:31"
+MeasuringSystem = "owlsbtlwear"
+Filename = "owlsbtlwear20210409_132606_2011TA"
+Position = "0"
+ProgramName = "OWLS4Meas"
+CompileVersion = "2.33"
+CompileDate = "210301"
+CarDirection = "A"
+EngineDirection = "-"
+Pantograph = "-"
+SystemName = "owlsbtlwear"
+CarType = "IMV200"
+trigIntervalCh1 = "10"
+trigIntervalCh2 = "10"
+trigIncrement = "1"
+pulsesPerTrigCh1 = "10"
+pulsesPerTrigCh2 = "10"
+</Start>
+<kw6Index>
+kw6Byte = "19"
+kw6Pos = "0"
+</kw6Index>
+<kw6Index>
+kw6Byte = "204496019"
+kw6Pos = "10000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "408992019"
+kw6Pos = "20000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "613488019"
+kw6Pos = "30000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "817984019"
+kw6Pos = "40000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "1022480019"
+kw6Pos = "50000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "1226976019"
+kw6Pos = "60000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "1431472019"
+kw6Pos = "70000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "1635968019"
+kw6Pos = "80000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "1840464019"
+kw6Pos = "90000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "2044960019"
+kw6Pos = "100000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "2249456019"
+kw6Pos = "110000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "2453952019"
+kw6Pos = "120000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "2658448019"
+kw6Pos = "130000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "2862944019"
+kw6Pos = "140000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "3067440019"
+kw6Pos = "150000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "3271936019"
+kw6Pos = "160000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "3476432019"
+kw6Pos = "170000"
+</kw6Index>
+<kw6Index>
+kw6Byte = "3680928019"
+kw6Pos = "180000"
+</kw6Index>
+<End>
+Date = "2021-04-09"
+Time = "13:36:35"
+MeasuringSystem = "owlsbtlwear"
+Filename = "owlsbtlwear20210409_132606_2011TA"
+Position = "181490"
+</End>
+</Protokoll>
