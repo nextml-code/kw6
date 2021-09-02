@@ -176,6 +176,9 @@ class Reader(BaseModel):
                     )
                     step_size_confidence *= 10
             except Exception:
+                if step_size_confidence == 1:
+                    raise Exception("Failed to take a single step from {frame_index}")
+
                 step_size_confidence = 1
 
             if position is not None and position.header.frame_index == frame_index:
