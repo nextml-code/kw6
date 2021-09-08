@@ -165,7 +165,8 @@ class Reader(BaseModel):
         position = None
         step_size_confidence = -1
         while not self.empty():
-            self.stream.seek(self.closest_stored_byte_position(frame_index))
+            closest_stored_byte_position = self.closest_stored_byte_position(frame_index)
+            self.stream.seek(closest_stored_byte_position)
             current_frame_index = PositionHeader.peek_from_stream(self.stream).frame_index
             try:
                 if step_size_confidence == -1:
@@ -176,6 +177,8 @@ class Reader(BaseModel):
                     )
                     step_size_confidence *= 10
             except Exception:
+                self.stream.seek(closest_stored_byte_position)
+
                 if step_size_confidence == 1:
                     raise Exception("Failed to take a single step from {frame_index}")
 
@@ -306,3 +309,15 @@ def test_length_dynamic():
         max_frame_index = position.header.frame_index
 
     assert max_frame_index == len(reader) + reader.initial_frame_index - 1
+
+
+def test_read_2121():
+    reader = Reader.from_path("tests/dynamic.kw6")
+
+    position2121 = reader[2121]
+
+    for position in reader:
+        if position.header.frame_index == 2121:
+            break
+
+    assert position2121 == position
