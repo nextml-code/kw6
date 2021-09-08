@@ -22,10 +22,10 @@ pulsesPerTrigCh2 = "10"
 </Start>
 <kw6Index>
 kw6Byte = "19"
-kw6Pos = "0"
+kw6Pos = "20690"
 </kw6Index>
 <kw6Index>
-kw6Byte = "372035"
+kw6Byte = "371987"
 kw6Pos = "20900"
 </kw6Index>
 <End>
