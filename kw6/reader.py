@@ -167,6 +167,7 @@ class Reader(BaseModel):
         )
         position = None
         step_size_confidence = -1
+
         while not self.empty():
             current_frame_index = PositionHeader.peek_from_stream(self.stream).frame_index
             try:
@@ -219,7 +220,7 @@ class Reader(BaseModel):
                 f"but found {position.header.frame_index} instead."
             )
 
-        self.cached_byte_positions[position.header.frame_index] = self.stream.tell()
+        self.cached_byte_positions[position.header.frame_index] = byte_position
         return position
 
     def closest_stored_byte_position(self, frame_index: types.FRAME_INDEX):
@@ -340,3 +341,9 @@ def test_stream_already_ended2():
 
     position2121 = reader[2121]
     assert position2121.header.frame_index == 2121
+
+
+def test_last_twice():
+    reader = Reader.from_path("tests/dynamic.kw6")
+    reader[2163]
+    reader[2163]
