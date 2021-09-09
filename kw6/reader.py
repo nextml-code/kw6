@@ -80,17 +80,23 @@ class Reader(BaseModel):
         stream.close()
 
     def __len__(self):
-        for _ in range(100):
+        for iteration in range(1, 10000 + 1):
             assumptuous_length = self.assumptuous_length()
+            assumptuous_max_frame_index = (
+                self.initial_frame_index + assumptuous_length - 1
+            )
             try:
-                max_position = self[self.initial_frame_index + assumptuous_length - 1]
+                max_position = self[assumptuous_max_frame_index]
                 max_byte_position = self.cached_byte_positions[max_position.header.frame_index]
                 if self.n_bytes == max_byte_position + max_position.header.n_frame_bytes:
                     return assumptuous_length
-            except Exception:
+            except IndexError:
                 pass
 
-        raise Exception(f"Failed to calculate length of {self.path}")
+            if assumptuous_length == self.assumptuous_length():
+                raise Exception("Unable to calculate length, probably due to corruption")
+
+        raise Exception(f"Failed to calculate length after {iteration} iterations")
 
     def assumptuous_length(self, from_frame_index=None):
         if from_frame_index is None:
@@ -98,8 +104,10 @@ class Reader(BaseModel):
 
         from_position = self[from_frame_index]
         max_byte_position = self.cached_byte_positions[from_frame_index]
+        n_frames = (self.n_bytes - max_byte_position) / from_position.header.n_frame_bytes
+
         return int(
-            (self.n_bytes - max_byte_position) / from_position.header.n_frame_bytes
+            n_frames
             + from_position.header.frame_index
             - self.initial_frame_index
         )
@@ -155,17 +163,23 @@ class Reader(BaseModel):
             )
 
         step_size_confidence = -1
-        for _ in range(100):
+        for _ in range(10000000):
             from_frame_index = self.closest_stored_frame_index(frame_index)
             if step_size_confidence == -1:
                 to_frame_index = frame_index
             else:
                 to_frame_index = from_frame_index + step_size_confidence
+
             try:
                 byte_position = self.assumptuous_byte_position(to_frame_index, from_frame_index)
                 self.stream.seek(byte_position)
                 position_header = PositionHeader.from_stream_(self.stream)
                 if position_header.frame_index != to_frame_index:
+                    if step_size_confidence == 1:
+                        raise IndexError(
+                            f"Unexpected frame index {position_header.frame_index} "
+                            f"when moving a single step from {from_frame_index}"
+                        )
                     step_size_confidence = 1
                     continue
                 self.cached_byte_positions[position_header.frame_index] = byte_position
@@ -175,6 +189,11 @@ class Reader(BaseModel):
                     self.stream.seek(byte_position)
                     return Position.from_stream_(self.stream)
             except Exception:
+                if step_size_confidence == 1:
+                    raise IndexError(
+                        f"Unable to move a single frame index from "
+                        f"{from_frame_index} to {to_frame_index}"
+                    )
                 step_size_confidence = 1
 
         raise IndexError(f"Unable to find {frame_index}")
@@ -193,12 +212,12 @@ class Reader(BaseModel):
             + from_byte_position
         )
         if byte_position < 0:
-            raise Exception(
+            raise IndexError(
                 f"Extrapolating to frame index {frame_index} from {from_frame_index}"
                 "gave a negative byte position"
             )
         elif byte_position > self.n_bytes:
-            raise Exception(
+            raise IndexError(
                 f"Extrapolating to frame index {frame_index} from {from_frame_index}"
                 f"gave a byte position greater than the size of the file {self.n_bytes}"
             )
@@ -276,7 +295,6 @@ def test_length_constant_corrupt():
 
 
 def test_length_dynamic():
-    import pytest
     reader = Reader.from_path("tests/dynamic.kw6")
 
     max_frame_index = None
@@ -319,3 +337,19 @@ def test_last_twice():
     reader = Reader.from_path("tests/dynamic.kw6")
     reader[2163]
     reader[2163]
+
+
+def test_read_too_far_dynamic():
+    import pytest
+    reader = Reader.from_path("tests/dynamic.kw6")
+
+    with pytest.raises(IndexError):
+        reader[10000]
+
+
+def test_read_too_far_constant():
+    import pytest
+    reader = Reader.from_path("tests/constant.kw6")
+
+    with pytest.raises(IndexError):
+        reader[10000]
