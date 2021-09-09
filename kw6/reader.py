@@ -6,7 +6,8 @@ from pathlib import Path
 from pydantic import BaseModel, validate_arguments
 from typing import Dict
 
-from kw6 import Position, PositionHeader, types, settings, hdr
+from kw6.position import Position, PositionHeader
+from kw6 import settings, types, header
 
 
 class Reader(BaseModel):
@@ -50,7 +51,7 @@ class Reader(BaseModel):
         initial_position_header = PositionHeader.from_stream_(stream)
 
         cached_byte_positions = (
-            hdr.positions(header_path)
+            header.positions(header_path)
             if header_path is not None
             else dict()
         )

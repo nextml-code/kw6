@@ -2,7 +2,8 @@ import array
 from pydantic import BaseModel
 from typing import Tuple
 
-from kw6 import Camera, types, settings
+from kw6.camera import Camera
+from kw6 import settings, types
 
 
 class PositionHeader(BaseModel):
