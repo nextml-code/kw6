@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from pydantic import BaseModel
 
-from kw6 import types, settings
+from kw6 import settings, types
 
 
 class CameraHeader(BaseModel):
