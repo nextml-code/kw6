@@ -99,7 +99,7 @@ class Reader(BaseModel):
         from_position = self[from_frame_index]
         max_byte_position = self.cached_byte_positions[from_frame_index]
         return int(
-            (self.n_bytes - max_byte_position) / np.clip(from_position.header.n_frame_bytes, 100, 400000)
+            (self.n_bytes - max_byte_position) / from_position.header.n_frame_bytes
             + from_position.header.frame_index
             - self.initial_frame_index
         )
