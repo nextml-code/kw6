@@ -1,4 +1,5 @@
 import io
+from os import stat
 import struct
 import array
 import numpy as np
@@ -30,12 +31,26 @@ class CameraHeader(BaseModel):
     class Config:
         allow_mutation = False
 
+    @staticmethod
     def from_stream_(stream):
         names = CameraHeader.__fields__.keys()
         return CameraHeader(**dict(zip(
             names,
-            array.array("d", stream.read(settings.N_BYTES_DOUBLE * len(names)))
+            array.array("d", stream.read(CameraHeader.byte_size()))
         )))
+
+    @staticmethod
+    def from_bytes(bytes):
+        names = CameraHeader.__fields__.keys()
+        return CameraHeader(**dict(zip(
+            names,
+            array.array("d", bytes[:CameraHeader.byte_size()])
+        )))
+
+    @staticmethod
+    def byte_size():
+        names = CameraHeader.__fields__.keys()
+        return settings.N_BYTES_DOUBLE * len(names)
 
 
 class Camera(BaseModel):
@@ -70,7 +85,13 @@ class Camera(BaseModel):
     def skip_(stream):
         header = CameraHeader.from_stream_(stream)
         stream.seek(
-            settings.N_BYTES_DOUBLE * (settings.IM_HDR_SIZE - len(header.dict()))
-            + header.height * header.width, io.SEEK_CUR
+            Camera.byte_size(header), io.SEEK_CUR
         )
         return header
+
+    @staticmethod
+    def byte_size(header):
+        return (
+            settings.N_BYTES_DOUBLE * (settings.IM_HDR_SIZE - len(header.dict()))
+            + header.height * header.width
+        )

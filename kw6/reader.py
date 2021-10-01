@@ -46,7 +46,7 @@ class Reader(BaseModel):
 
         version = stream.read(settings.N_BYTES_VERSION).decode().strip()
         if version != "KW6FileClassVer1.0":
-            raise ValueError(f"Unexpected file version {version}")
+            raise ValueError(f"Unexpected file version {version} {path}")
 
         initial_position_header = PositionHeader.from_stream_(stream)
 
@@ -72,7 +72,7 @@ class Reader(BaseModel):
         """Iterate over all positions and cameras in the file"""
         stream = self.path.open("rb")
         stream.seek(settings.N_BYTES_VERSION)
-        while not stream.peek(1) == b"":
+        while stream.peek(1) != b"":
             byte_position = stream.tell()
             position = Position.from_stream_(stream)
             self.cached_byte_positions[position.header.frame_index] = byte_position
