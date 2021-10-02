@@ -92,6 +92,7 @@ class Camera(BaseModel):
     @staticmethod
     def byte_size(header):
         return (
-            settings.N_BYTES_DOUBLE * (settings.IM_HDR_SIZE - len(header.dict()))
+            CameraHeader.byte_size()
+            + settings.N_BYTES_DOUBLE * (settings.IM_HDR_SIZE - len(header.dict()))
             + header.height * header.width
         )
