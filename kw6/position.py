@@ -20,16 +20,19 @@ class PositionHeader(BaseModel):
     @staticmethod
     def peek_from_stream(stream):
         byte_size = PositionHeader.byte_size()
-        return PositionHeader(**dict(zip(
-            PositionHeader.__fields__.keys(),
-            array.array("d", stream.peek(byte_size)[:byte_size]),
-        )))
+        return PositionHeader.from_bytes(stream.peek(byte_size)[:byte_size])
 
     @staticmethod
     def from_stream_(stream):
+        return PositionHeader.from_bytes(
+            stream.read(PositionHeader.byte_size())
+        )
+
+    @staticmethod
+    def from_bytes(bytes):
         return PositionHeader(**dict(zip(
             PositionHeader.__fields__.keys(),
-            array.array("d", stream.read(PositionHeader.byte_size()))
+            array.array("d", bytes)
         )))
 
     @staticmethod
