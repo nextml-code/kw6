@@ -85,7 +85,7 @@ class Camera(BaseModel):
     def skip_(stream):
         header = CameraHeader.from_stream_(stream)
         stream.seek(
-            Camera.byte_size(header), io.SEEK_CUR
+            Camera.byte_size(header) - CameraHeader.byte_size(), io.SEEK_CUR
         )
         return header
 
