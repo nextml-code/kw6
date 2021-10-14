@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from xml.dom import minidom
 from pathlib import Path
 from pydantic import BaseModel, validate_arguments
-from typing import Dict
+from typing import Dict, Any, Optional
 
 from kw6.position import Position, PositionHeader
 from kw6 import settings, types, header
@@ -30,8 +30,7 @@ class Reader(BaseModel):
                 )
     """
 
-    path: Path
-    stream: io.BufferedReader
+    stream: Any
     cached_byte_positions: Dict[int, int]
     initial_frame_index: int
     n_bytes: int
@@ -40,44 +39,44 @@ class Reader(BaseModel):
         arbitrary_types_allowed = True
 
     @staticmethod
-    @validate_arguments
-    def from_path(path: Path, header_path: Path = None):
-        stream = path.open("rb")
-
-        version = stream.read(settings.N_BYTES_VERSION).decode().strip()
+    def from_file_like(file, header_file=None):
+        version = file.read(settings.N_BYTES_VERSION).decode().strip()
         if version != "KW6FileClassVer1.0":
-            raise ValueError(f"Unexpected file version {version} {path}")
+            raise ValueError(f"Unexpected file version {version}")
 
-        initial_position_header = PositionHeader.from_stream_(stream)
+        initial_position_header = PositionHeader.from_stream_(file)
 
         cached_byte_positions = (
-            header.positions(header_path)
-            if header_path is not None
-            else dict()
+            dict() if header_file is None else header.positions(header_file.read())
         )
         cached_byte_positions[initial_position_header.frame_index] = settings.N_BYTES_VERSION
 
-        stream.seek(0, io.SEEK_END)
-        n_bytes = stream.tell()
+        file.seek(0, io.SEEK_END)
+        n_bytes = file.tell()
 
         return Reader(
-            path=path,
-            stream=stream,
+            stream=file,
             cached_byte_positions=cached_byte_positions,
             initial_frame_index=initial_position_header.frame_index,
             n_bytes=n_bytes,
         )
 
+    @staticmethod
+    @validate_arguments
+    def from_path(path: Path, header_path: Path = None):
+        return Reader.from_file_like(
+            path.open("rb"),
+            None if header_path is None else header_path.open("rb"),
+        )
+
     def __iter__(self):
         """Iterate over all positions and cameras in the file"""
-        stream = self.path.open("rb")
-        stream.seek(settings.N_BYTES_VERSION)
-        while stream.peek(1) != b"":
-            byte_position = stream.tell()
-            position = Position.from_stream_(stream)
+        self.stream.seek(settings.N_BYTES_VERSION)
+        while self.stream.peek(1) != b"":
+            byte_position = self.stream.tell()
+            position = Position.from_stream_(self.stream)
             self.cached_byte_positions[position.header.frame_index] = byte_position
             yield position
-        stream.close()
 
     def __len__(self):
         for iteration in range(1, 10000 + 1):

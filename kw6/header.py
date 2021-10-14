@@ -8,9 +8,8 @@ kw6Pos = "(?P<kw6_pos>\d*)"
 """)
 
 
-def positions(path):
-    tree = ET.parse(path)
-    root = tree.getroot()
+def positions(header):
+    root = ET.fromstring(header)
     positions = [
         CHILD_TEXT_PATTERN.match(child.text).groupdict()
         for child in root
@@ -24,4 +23,7 @@ def positions(path):
 
 
 def test_positions():
-    assert positions("tests/owlsbtlwear20210409_132606_2011TA.hdr")[0] == 19
+    from pathlib import Path
+    assert positions(
+        Path("tests/owlsbtlwear20210409_132606_2011TA.hdr").read_text()
+    )[0] == 19
