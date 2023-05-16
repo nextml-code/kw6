@@ -1,13 +1,14 @@
 import io
-import numpy as np
 from collections.abc import Iterable
-from xml.dom import minidom
 from pathlib import Path
-from pydantic import BaseModel, validate_arguments
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+from xml.dom import minidom
 
+import numpy as np
+from pydantic import BaseModel, validate_arguments
+
+from kw6 import header, settings, types
 from kw6.position import Position, PositionHeader
-from kw6 import settings, types, header
 
 
 class Reader(BaseModel):
@@ -34,6 +35,7 @@ class Reader(BaseModel):
     cached_byte_positions: Dict[int, int]
     initial_frame_index: int
     n_bytes: int
+    file_version: str
 
     class Config:
         arbitrary_types_allowed = True
@@ -49,7 +51,9 @@ class Reader(BaseModel):
         cached_byte_positions = (
             dict() if header_file is None else header.positions(header_file.read())
         )
-        cached_byte_positions[initial_position_header.frame_index] = settings.N_BYTES_VERSION
+        cached_byte_positions[
+            initial_position_header.frame_index
+        ] = settings.N_BYTES_VERSION
 
         file.seek(0, io.SEEK_END)
         n_bytes = file.tell()
@@ -59,6 +63,7 @@ class Reader(BaseModel):
             cached_byte_positions=cached_byte_positions,
             initial_frame_index=initial_position_header.frame_index,
             n_bytes=n_bytes,
+            file_version=version,
         )
 
     @staticmethod
@@ -86,14 +91,21 @@ class Reader(BaseModel):
             )
             try:
                 max_position = self[assumptuous_max_frame_index]
-                max_byte_position = self.cached_byte_positions[max_position.header.frame_index]
-                if self.n_bytes == max_byte_position + max_position.header.n_frame_bytes:
+                max_byte_position = self.cached_byte_positions[
+                    max_position.header.frame_index
+                ]
+                if (
+                    self.n_bytes
+                    == max_byte_position + max_position.header.n_frame_bytes
+                ):
                     return assumptuous_length
             except IndexError:
                 pass
 
             if assumptuous_length == self.assumptuous_length():
-                raise Exception("Unable to calculate length, probably due to corruption")
+                raise Exception(
+                    "Unable to calculate length, probably due to corruption"
+                )
 
         raise Exception(f"Failed to calculate length after {iteration} iterations")
 
@@ -103,12 +115,12 @@ class Reader(BaseModel):
 
         from_position = self[from_frame_index]
         max_byte_position = self.cached_byte_positions[from_frame_index]
-        n_frames = (self.n_bytes - max_byte_position) / from_position.header.n_frame_bytes
+        n_frames = (
+            self.n_bytes - max_byte_position
+        ) / from_position.header.n_frame_bytes
 
         return int(
-            n_frames
-            + from_position.header.frame_index
-            - self.initial_frame_index
+            n_frames + from_position.header.frame_index - self.initial_frame_index
         )
 
     def __getitem__(self, indices_or_slice):
@@ -139,7 +151,9 @@ class Reader(BaseModel):
                     for index in range(
                         indices_or_slice.start,
                         indices_or_slice.stop,
-                        indices_or_slice.step if indices_or_slice.step is not None else 1,
+                        indices_or_slice.step
+                        if indices_or_slice.step is not None
+                        else 1,
                     )
                 ]
 
@@ -170,7 +184,9 @@ class Reader(BaseModel):
                 to_frame_index = from_frame_index + step_size_confidence
 
             try:
-                byte_position = self.assumptuous_byte_position(to_frame_index, from_frame_index)
+                byte_position = self.assumptuous_byte_position(
+                    to_frame_index, from_frame_index
+                )
                 self.stream.seek(byte_position)
                 position_header = PositionHeader.from_stream_(self.stream)
                 if position_header.frame_index != to_frame_index:
@@ -225,7 +241,8 @@ class Reader(BaseModel):
 
     def closest_stored_frame_index(self, frame_index: types.FRAME_INDEX):
         earlier_frame_indices = [
-            cached_frame_index for cached_frame_index in self.cached_byte_positions.keys()
+            cached_frame_index
+            for cached_frame_index in self.cached_byte_positions.keys()
             if cached_frame_index <= frame_index
         ]
         return max(earlier_frame_indices)
@@ -280,7 +297,9 @@ def test_length():
     for position in reader:
         max_frame_index = position.header.frame_index
 
-    assert max_frame_index == reader.assumptuous_length() + reader.initial_frame_index - 1
+    assert (
+        max_frame_index == reader.assumptuous_length() + reader.initial_frame_index - 1
+    )
     assert max_frame_index == len(reader) + reader.initial_frame_index - 1
 
 
@@ -298,7 +317,10 @@ def test_length_dynamic():
 
     max_frame_index = None
     for position in reader:
-        assert max_frame_index is None or position.header.frame_index == max_frame_index + 1
+        assert (
+            max_frame_index is None
+            or position.header.frame_index == max_frame_index + 1
+        )
         max_frame_index = position.header.frame_index
 
     assert max_frame_index == len(reader) + reader.initial_frame_index - 1
@@ -340,6 +362,7 @@ def test_last_twice():
 
 def test_read_too_far_dynamic():
     import pytest
+
     reader = Reader.from_path("tests/dynamic.kw6")
 
     with pytest.raises(IndexError):
@@ -348,6 +371,7 @@ def test_read_too_far_dynamic():
 
 def test_read_too_far_constant():
     import pytest
+
     reader = Reader.from_path("tests/constant.kw6")
 
     with pytest.raises(IndexError):
