@@ -1,11 +1,11 @@
+from __future__ import annotations
+
 import io
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Optional
-from xml.dom import minidom
+from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
-from pydantic import BaseModel, validate_arguments
+from pydantic import BaseModel
 
 from kw6 import header, settings, types
 from kw6.position import Position, PositionHeader
@@ -41,7 +41,20 @@ class Reader(BaseModel):
         arbitrary_types_allowed = True
 
     @staticmethod
-    def from_file_like(file, header_file=None):
+    def from_file_like(file: Any, header_file: Optional[Any] = None) -> "Reader":
+        """
+        Create a Reader instance from a file-like object.
+
+        Args:
+            file: A file-like object containing the kw6 data.
+            header_file: An optional file-like object containing header information.
+
+        Returns:
+            A Reader instance.
+
+        Raises:
+            ValueError: If the file version is unexpected.
+        """
         version = file.read(settings.N_BYTES_VERSION).decode().strip()
         if version != "KW6FileClassVer1.0":
             raise ValueError(f"Unexpected file version {version}")
@@ -51,9 +64,9 @@ class Reader(BaseModel):
         cached_byte_positions = (
             dict() if header_file is None else header.positions(header_file.read())
         )
-        cached_byte_positions[
-            initial_position_header.frame_index
-        ] = settings.N_BYTES_VERSION
+        cached_byte_positions[initial_position_header.frame_index] = (
+            settings.N_BYTES_VERSION
+        )
 
         file.seek(0, io.SEEK_END)
         n_bytes = file.tell()
@@ -67,14 +80,28 @@ class Reader(BaseModel):
         )
 
     @staticmethod
-    @validate_arguments
-    def from_path(path: Path, header_path: Path = None):
+    def from_path(
+        path: Union[str, Path], header_path: Optional[Union[str, Path]] = None
+    ) -> "Reader":
+        """
+        Create a Reader instance from a file path.
+
+        Args:
+            path: Path to the kw6 file. Can be a string or Path object.
+            header_path: Optional path to the header file. Can be a string or Path object.
+
+        Returns:
+            A Reader instance.
+        """
+        path = Path(path) if isinstance(path, str) else path
+        header_path = Path(header_path) if isinstance(header_path, str) else header_path
+
         return Reader.from_file_like(
             path.open("rb"),
             None if header_path is None else header_path.open("rb"),
         )
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[Position]:
         """Iterate over all positions and cameras in the file"""
         self.stream.seek(settings.N_BYTES_VERSION)
         while self.stream.peek(1) != b"":
@@ -83,7 +110,16 @@ class Reader(BaseModel):
             self.cached_byte_positions[position.header.frame_index] = byte_position
             yield position
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Calculate the length of the kw6 file.
+
+        Returns:
+            The number of frames in the file.
+
+        Raises:
+            Exception: If unable to calculate length due to corruption or after too many iterations.
+        """
         for iteration in range(1, 10000 + 1):
             assumptuous_length = self.assumptuous_length()
             assumptuous_max_frame_index = (
@@ -109,7 +145,16 @@ class Reader(BaseModel):
 
         raise Exception(f"Failed to calculate length after {iteration} iterations")
 
-    def assumptuous_length(self, from_frame_index=None):
+    def assumptuous_length(self, from_frame_index: Optional[int] = None) -> int:
+        """
+        Calculate an assumptuous length of the kw6 file.
+
+        Args:
+            from_frame_index: The frame index to start calculation from.
+
+        Returns:
+            An estimated number of frames in the file.
+        """
         if from_frame_index is None:
             from_frame_index = max(self.cached_byte_positions.keys())
 
@@ -123,7 +168,9 @@ class Reader(BaseModel):
             n_frames + from_position.header.frame_index - self.initial_frame_index
         )
 
-    def __getitem__(self, indices_or_slice):
+    def __getitem__(
+        self, indices_or_slice: Union[int, slice, Iterable[int]]
+    ) -> Union[Position, List[Position]]:
         """
         Access a position by frame index. Supports slicing and array indexing
 
@@ -138,11 +185,21 @@ class Reader(BaseModel):
             position = reader[10]
             positions = reader[10:20]
             positions = reader[[5, 7, 9]]
+
+        Args:
+            indices_or_slice: An integer, slice, or iterable of integers representing frame indices.
+
+        Returns:
+            A single Position or a list of Positions.
+
+        Raises:
+            ValueError: If slice start or stop is None.
+            TypeError: If the input type is not supported for indexing.
         """
-        if type(indices_or_slice) == int:
+        if isinstance(indices_or_slice, int):
             positions = self.position_(indices_or_slice)
 
-        elif type(indices_or_slice) == slice:
+        elif isinstance(indices_or_slice, slice):
             if indices_or_slice.start is None or indices_or_slice.stop is None:
                 raise ValueError("NoneType not supported for slice start or stop")
             else:
@@ -151,9 +208,11 @@ class Reader(BaseModel):
                     for index in range(
                         indices_or_slice.start,
                         indices_or_slice.stop,
-                        indices_or_slice.step
-                        if indices_or_slice.step is not None
-                        else 1,
+                        (
+                            indices_or_slice.step
+                            if indices_or_slice.step is not None
+                            else 1
+                        ),
                     )
                 ]
 
@@ -165,7 +224,20 @@ class Reader(BaseModel):
 
         return positions
 
-    def position_(self, frame_index: types.FRAME_INDEX):
+    def position_(self, frame_index: types.FRAME_INDEX) -> Position:
+        """
+        Retrieve a Position for a given frame index.
+
+        Args:
+            frame_index: The frame index to retrieve.
+
+        Returns:
+            A Position object for the given frame index.
+
+        Raises:
+            IndexError: If the frame index is negative, smaller than the initial frame index,
+                        or if unable to find the requested frame.
+        """
         if frame_index < 0:
             raise IndexError("Negative indexing not supported")
 
@@ -218,6 +290,19 @@ class Reader(BaseModel):
         frame_index: types.FRAME_INDEX,
         from_frame_index: types.FRAME_INDEX,
     ) -> int:
+        """
+        Calculate an assumptuous byte position for a given frame index.
+
+        Args:
+            frame_index: The target frame index.
+            from_frame_index: The frame index to start calculation from.
+
+        Returns:
+            The calculated byte position.
+
+        Raises:
+            IndexError: If the calculated byte position is negative or greater than the file size.
+        """
         self.stream.seek(self.cached_byte_positions[from_frame_index])
         from_byte_position = self.stream.tell()
         from_position_header = PositionHeader.from_stream_(self.stream)
@@ -239,7 +324,16 @@ class Reader(BaseModel):
 
         return byte_position
 
-    def closest_stored_frame_index(self, frame_index: types.FRAME_INDEX):
+    def closest_stored_frame_index(self, frame_index: types.FRAME_INDEX) -> int:
+        """
+        Find the closest stored frame index that is less than or equal to the given frame index.
+
+        Args:
+            frame_index: The target frame index.
+
+        Returns:
+            The closest stored frame index.
+        """
         earlier_frame_indices = [
             cached_frame_index
             for cached_frame_index in self.cached_byte_positions.keys()
@@ -248,6 +342,7 @@ class Reader(BaseModel):
         return max(earlier_frame_indices)
 
     def __del__(self):
+        """Close the stream when the Reader object is deleted."""
         self.stream.close()
 
 

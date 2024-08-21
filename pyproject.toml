@@ -2,14 +2,14 @@
 name = "kw6"
 version = "0.0.0"
 description = "Minimalistic library for reading files in the kw6 file format"
-authors = ["Aiwizo AB"]
+authors = ["NextML AB"]
 license = "Apache 2.0"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
 numpy = "^1.21.2"
 Pillow = "^9.0.0"
-pydantic = "^1.8.2"
+pydantic = "^2.0.0"
 
 [tool.poetry.dev-dependencies]
 tqdm = "^4.62.2"
