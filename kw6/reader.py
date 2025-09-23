@@ -41,7 +41,11 @@ class Reader(BaseModel):
         arbitrary_types_allowed = True
 
     @staticmethod
-    def from_file_like(file: Any, header_file: Optional[Any] = None) -> "Reader":
+    def from_file_like(
+        file: Any,
+        header_file: Optional[Any] = None,
+        raise_on_version_mismatch: bool = True,
+    ) -> "Reader":
         """
         Create a Reader instance from a file-like object.
 
@@ -56,7 +60,7 @@ class Reader(BaseModel):
             ValueError: If the file version is unexpected.
         """
         version = file.read(settings.N_BYTES_VERSION).decode().strip()
-        if version != "KW6FileClassVer1.0":
+        if version != "KW6FileClassVer1.0" and raise_on_version_mismatch:
             raise ValueError(f"Unexpected file version {version}")
 
         initial_position_header = PositionHeader.from_stream_(file)
@@ -81,7 +85,9 @@ class Reader(BaseModel):
 
     @staticmethod
     def from_path(
-        path: Union[str, Path], header_path: Optional[Union[str, Path]] = None
+        path: Union[str, Path],
+        header_path: Optional[Union[str, Path]] = None,
+        raise_on_version_mismatch: bool = True,
     ) -> "Reader":
         """
         Create a Reader instance from a file path.
@@ -97,8 +103,9 @@ class Reader(BaseModel):
         header_path = Path(header_path) if isinstance(header_path, str) else header_path
 
         return Reader.from_file_like(
-            path.open("rb"),
-            None if header_path is None else header_path.open("rb"),
+            file=path.open("rb"),
+            header_file=None if header_path is None else header_path.open("rb"),
+            raise_on_version_mismatch=raise_on_version_mismatch,
         )
 
     def __iter__(self) -> Iterable[Position]:
