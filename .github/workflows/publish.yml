@@ -12,10 +12,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.8"
+          python-version: "3.12"
       - name: Install dependencies
         run: |
-          curl -sSL https://install.python-poetry.org | python - --version 1.4.2
+          curl -sSL https://install.python-poetry.org | python - --version 1.8.5
           poetry install
 
       - name: Run tests

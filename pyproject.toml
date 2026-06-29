@@ -6,9 +6,13 @@ authors = ["NextML AB"]
 license = "Apache 2.0"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+# Floor raised to 3.9 so numpy/Pillow resolve to lines that ship cp312 wheels
+# (numpy 1.26 / Pillow 10 dropped 3.8); ceiling <3.13 for Python 3.12.
+python = ">=3.9,<3.13"
 numpy = "^1.21.2"
-Pillow = "^9.0.0"
+# Pillow >=10 is the first line with cp312 wheels; <12 keeps the 3.8 floor
+# satisfiable (Pillow 11 dropped 3.8).
+Pillow = ">=10.0,<12"
 pydantic = "^2.0.0"
 
 [tool.poetry.dev-dependencies]

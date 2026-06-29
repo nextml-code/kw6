@@ -1,7 +1,8 @@
 from kw6.reader import Reader
 
-from pkg_resources import get_distribution, DistributionNotFound
+from importlib.metadata import version, PackageNotFoundError
+
 try:
-    __version__ = get_distribution("kw6").version
-except DistributionNotFound:
+    __version__ = version("kw6")
+except PackageNotFoundError:
     pass
