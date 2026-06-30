@@ -1,26 +1,27 @@
-[tool.poetry]
+[project]
 name = "kw6"
 version = "0.0.0"
 description = "Minimalistic library for reading files in the kw6 file format"
-authors = ["NextML AB"]
-license = "Apache 2.0"
+authors = [{ name = "NextML AB" }]
+requires-python = ">=3.9,<3.13"
+license = "Apache-2.0"
+dependencies = [
+    "numpy>=1.21.2,<2",
+    "Pillow>=10.0,<12",
+    "pydantic>=2.0.0,<3",
+]
 
-[tool.poetry.dependencies]
-# Floor raised to 3.9 so numpy/Pillow resolve to lines that ship cp312 wheels
-# (numpy 1.26 / Pillow 10 dropped 3.8); ceiling <3.13 for Python 3.12.
-python = ">=3.9,<3.13"
-numpy = "^1.21.2"
-# Pillow >=10 is the first line with cp312 wheels; <12 keeps the 3.8 floor
-# satisfiable (Pillow 11 dropped 3.8).
-Pillow = ">=10.0,<12"
-pydantic = "^2.0.0"
-
-[tool.poetry.dev-dependencies]
-tqdm = "^4.62.2"
-pytest = "^6.2.5"
-flake8 = "^3.9.2"
-ipykernel = "^6.4.1"
+[dependency-groups]
+dev = [
+    "tqdm>=4.62.2,<5",
+    "pytest>=6.2.5,<7",
+    "flake8>=3.9.2,<4",
+    "ipykernel>=6.4.1,<7",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.11.25,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
